@@ -2,7 +2,7 @@ defmodule EPMDLess.StartNode do
   use GenServer
 
   def start_link(opts) do
-    GenServer.start_link(__MODULE__, nil, opts)
+    GenServer.start_link(__MODULE__, opts, [])
   end
 
   @impl GenServer
@@ -22,19 +22,27 @@ defmodule EPMDLess.StartNode do
     parent_node = node()
     elixir = System.find_executable("elixir")
 
+    beams_path = Path.join(tmp_path(), "epmd")
+
+    prepare_module(EPMDLess.EPMD, beams_path)
+    prepare_module(EPMDLess.NodePortMapper, beams_path)
+    prepare_module(EPMDLess.Store, beams_path)
+
     Port.open({:spawn_executable, elixir}, [
       :binary,
       :stderr_to_stdout,
       args: [
         "--erl",
         "-start_epmd false -epmd_module Elixir.EPMDLess.EPMD",
-        "--sname",
-        "epmdless_child_#{opts[:child]}",
         "--no-halt",
         "-pa",
-        epmd_module_path!(),
+        beams_path,
         "-e",
-        ~s[IO.puts("ok")]
+        """
+        Node.start(:epmdless_child_#{opts[:child]}, :shortnames);
+        EPMDLess.NodePortMapper.register();
+        IO.puts("ok");
+        """
       ],
       env: [
         {~c"EPMDLESS_PARENT_NODE", to_charlist(parent_node)},
@@ -43,13 +51,10 @@ defmodule EPMDLess.StartNode do
     ])
   end
 
-  defp epmd_module_path!() do
-    epmd_path = Path.join(tmp_path(), "epmd")
-    File.rm_rf!(epmd_path)
-    File.mkdir_p!(epmd_path)
-    {_module, binary, path} = :code.get_object_code(EPMDLess.EPMD)
-    File.write!(Path.join(epmd_path, Path.basename(path)), binary)
-    epmd_path
+  def prepare_module(module, dest_path) do
+    File.mkdir_p!(dest_path)
+    {_module, binary, path} = :code.get_object_code(module)
+    File.write!(Path.join(dest_path, Path.basename(path)), binary)
   end
 
   def tmp_path() do
