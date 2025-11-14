@@ -40,4 +40,3 @@ defmodule EPMDLess.NodePortMapper do
     {:noreply, Map.delete(state, node)}
   end
 end
-

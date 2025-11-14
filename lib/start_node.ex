@@ -7,7 +7,26 @@ defmodule EPMDLess.StartNode do
 
   @impl GenServer
   def init(opts) do
-    :net_kernel.start(:"epmdless_parent_#{opts[:parent]}", %{name_domain: :shortnames})
+    case :init.get_argument(:epmd_module) do
+      {:ok, [[~c"Elixir.EPMDLess.EPMD"]]} ->
+        :ok
+
+      _ ->
+        Application.put_env(:kernel, :epmd_module, EPMDLess.EPMD, persistent: true)
+
+        # Note: this is a private API
+        if :net_kernel.epmd_module() != EPMDLess.EPMD do
+          raise("""
+          you must set the environment variable ELIXIR_ERL_OPTIONS="-epmd_module Elixir.EPMDLess.EPMD"
+          """)
+        end
+    end
+
+    EPMDLess.NodePortMapper.start_link([])
+
+    {:ok, _} =
+      Node.start(:"epmdless_parent_#{opts[:parent]}", :shortnames)
+
     port = start_node(opts)
     {:ok, port}
   end
@@ -39,7 +58,7 @@ defmodule EPMDLess.StartNode do
         beams_path,
         "-e",
         """
-        Node.start(:epmdless_child_#{opts[:child]}, :shortnames);
+        {:ok, _} = Node.start(:"epmdless_child_#{opts[:child]}", :shortnames);
         EPMDLess.NodePortMapper.register();
         IO.puts("ok");
         """

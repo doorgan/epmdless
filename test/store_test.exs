@@ -13,4 +13,3 @@ defmodule EPMDLess.StoreTest do
     assert "value1" == Store.get(:key1)
   end
 end
-

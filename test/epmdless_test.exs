@@ -3,10 +3,9 @@ defmodule EpmdlessTest do
   doctest Epmdless
 
   test "starts node with custom epmd" do
-    {:ok, hostname} = :inet.gethostname()
-    {:ok, _pid} = EPMDLess.Store.start_link()
     {:ok, _pid} = EPMDLess.StartNode.start_link(parent: "foo", child: "bar")
-    child_node = :"epmdless_child_bar@#{hostname}"
+    {:ok, _pid} = EPMDLess.Store.start_link()
+    child_node = :"epmdless_child_bar@macbook"
 
     Process.sleep(1000)
 
@@ -17,12 +16,15 @@ defmodule EpmdlessTest do
     assert Process.alive?(pid)
 
     assert EPMDLess.Store.name() ==
-      :erpc.call(child_node, EPMDLess.Store, :name, [])
+             :erpc.call(child_node, EPMDLess.Store, :name, [])
 
-    assert "Hello from child node!" ==
+    assert :ok ==
              :erpc.call(child_node, EPMDLess.Store, :put, [
                :key1,
                "Hello from child node!"
              ])
+
+    assert "Hello from child node!" ==
+             :erpc.call(child_node, EPMDLess.Store, :get, [:key1])
   end
 end

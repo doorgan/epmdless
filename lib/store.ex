@@ -2,11 +2,11 @@ defmodule EPMDLess.Store do
   use GenServer
 
   def start_link() do
-    GenServer.start_link(__MODULE__, %{}, name: {:via, :global, __MODULE__})
+    GenServer.start_link(__MODULE__, %{}, name: name())
   end
 
   def name() do
-    {:via, :global, __MODULE__}
+    {:global, __MODULE__}
   end
 
   def get(key) do
